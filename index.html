@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<meta name="robots" content="noindex">
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Voting Page</title>
+
+    <link rel="stylesheet" type="text/css" href="style.css">
+
+    <script src="./node_modules/web3/dist/web3.min.js"></script>
+  </head>
+  <body>
+    <h1>Which do you prefer, Coke or Pepsi?</h1>
+    <div>
+      <h2>Here is what other people are saying:</h2>
+      <table>
+        <tr>
+          <th></th>
+          <th>Coke</th>
+          <th>Pepsi</th>
+        </tr>
+        <tr>
+          <th>Number of votes</th>
+          <td id='cokeVotes'>0</td>
+          <td id='pepsiVotes'>0</td>
+        </tr>
+      </table>
+      <p id='numVotesP'>Total number of votes: 0</p>
+    </div>
+    <div id='selectionDiv'>
+      <button onclick='castVote(0)'>Coke</button>
+      <button onclick='castVote(1)'>Pepsi</button>
+    </div>
+    <div id='winnerDiv'>
+      <button onclick='announceWinner()'>Announce winner</button>
+      <p id='winnerP'>Winner is: Neither</p>
+    </div>
+
+    <script id="jsbin-javascript">
+
+      if (typeof web3 != 'undefined') {
+        web3 = new Web3(web3.currentProvider);
+      } else {
+        web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
+      }
+
+      web3.eth.defaultAccount = web3.eth.accounts[0];
+      var voting = web3.eth.contract([
+  {
+    "constant": true,
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "candidates",
+    "outputs": [
+      {
+        "name": "name",
+        "type": "bytes32"
+      },
+      {
+        "name": "numberOfVotes",
+        "type": "uint256"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "candidateIndex",
+        "type": "uint256"
+      }
+    ],
+    "name": "castVote",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "getWinner",
+    "outputs": [
+      {
+        "name": "winner",
+        "type": "bytes32"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [
+      {
+        "name": "candidateIndex",
+        "type": "uint256"
+      }
+    ],
+    "name": "getNumberOfVotes",
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [
+      {
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "votes",
+    "outputs": [
+      {
+        "name": "voted",
+        "type": "bool"
+      },
+      {
+        "name": "vote",
+        "type": "uint256"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  }
+]);
+
+      var votingContract = voting.at('0x4588053b7ff55e3d13c8bd31b165fe24c476454d');
+      console.log(votingContract);
+
+      var cokeVotesText = document.getElementById('cokeVotes');
+      var pepsiVotesText = document.getElementById('pepsiVotes');
+      var totalVotesP = document.getElementById('numVotesP');
+      var winnerP = document.getElementById('winnerP');
+      var selectionDiv = document.getElementById('selectionDiv');
+
+      displayVotes();
+
+      var totalVotes = 0;
+      var cokeVotes = 0;
+      var pepsiVotes = 0;
+      var voted = false;
+
+      function castVote(candidateIndex) {
+        try {
+          votingContract.castVote(candidateIndex);
+        } catch (error) {
+          alert('You have already voted or voting is closed!');
+        }
+        displayVotes();
+
+        if (voted) {
+           alert('You have already voted!')
+           return;
+         }
+         voted = true;
+         if (candidateIndex === 0) {
+           cokeVotes += 1;
+           cokeVotesText.innerHTML = cokeVotes.toString();
+         } else {
+           pepsiVotes += 1;
+           pepsiVotesText.innerHTML = pepsiVotes.toString();
+         }
+         totalVotes += 1;
+         totalVotesP.innerHTML = 'Total number of votes: ' + totalVotes.toString();
+      }
+
+      function displayVotes() {
+        var cokeVotes = votingContract.getNumberOfVotes(0);
+        var pepsiVotes = votingContract.getNumberOfVotes(1);
+        var totalVotes = parseInt(cokeVotes) + parseInt(pepsiVotes);
+
+        cokeVotesText.innerHTML = cokeVotes.toString();
+        pepsiVotesText.innerHTML = pepsiVotes.toString();
+        totalVotesP.innerHTML = 'Total number of votes: ' + totalVotes.toString();
+      }
+
+      function announceWinner() {
+         var winner = ''
+         if (cokeVotes > pepsiVotes) {
+           winner = 'Coke'
+         } else {
+           winner = 'Pepsi'
+         }
+        try {
+          var winner = web3.toAscii(votingContract.getWinner());
+
+          winnerP.innerHTML = 'Winner is: ' + winner;
+          winnerP.style.display = 'block';
+          for (var i = 0; i < selectionDiv.childNodes.length; i++) {
+            selectionDiv.childNodes[i].disabled = true;
+          }
+        } catch (error) {
+          alert('Must be a chairperson');
+          console.log(error);
+        }
+      }
+
+    </script>
+  </body>
+</html>
